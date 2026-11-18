@@ -88,7 +88,7 @@ npm run typecheck  # TypeScript 类型检查
 
 **网页开发模式说明**：`npm run dev` 以普通网页运行，数据层自动降级为 localStorage，便于热更新调试 UI；跨域请求此时受 CORS 限制（页面顶部有「开发模式」徽标提示）。插件专属能力（免 CORS 跨域请求、工具栏图标点击全屏打开）仅在 `dist` 加载的扩展环境生效。
 
-**应用图标**：`public/icons/icon-source.png` 为设计原图（深藏青窗口 + API 卡片 + 蓝色代码徽标），16/48/128 三档由其高质量缩放生成；界面配色（藏青底色阶 + 图标蓝主色）与图标同源。
+**应用图标**：`design/icon-source.png` 为设计原图（深藏青窗口 + API 卡片 + 蓝色代码徽标），16/48/128 三档与官网 hero 320px 图由其高质量缩放生成；界面配色（藏青底色阶 + 图标蓝主色）与图标同源。
 
 ## 目录结构
 
@@ -97,7 +97,16 @@ penApi/
 ├── public/
 │   ├── manifest.json        # MV3 清单（storage + unlimitedStorage + cookies + webRequest + host_permissions）
 │   ├── background.js        # service worker：图标点击开页 / 聚焦 + 页面请求抓包监听
-│   └── icons/               # 扩展图标（icon-source.png 为设计原图）
+│   └── icons/               # 扩展图标（16/48/128）
+├── site/                    # 官网静态页（https://penapi.uuhb.cn）
+│   ├── index.html           # 产品页（功能 / 安装步骤 / 下载入口）
+│   ├── changelog.html       # 更新记录（发版时追加条目）
+│   ├── downloads/           # 插件发布包（构建后压缩，不入库）
+│   └── icons/               # 站点图标（icon48/128/320）
+├── deploy/
+│   └── penapi-caddy-block.conf  # 线上 Caddy 站点块（与服务器 /etc/caddy/Caddyfile 保持一致）
+├── design/
+│   └── icon-source.png      # 图标设计原图（各档尺寸缩放的源）
 ├── src/
 │   ├── core/                # 请求引擎 / ws / 变量替换 / cURL 解析 / JSON·Postman 导入 / 断言引擎 / 代码生成 / Cookie / 抓包 / 右键菜单
 │   ├── storage/db.ts        # chrome.storage.local 适配 + 网页模式 localStorage 降级
@@ -115,6 +124,20 @@ penApi/
 │   └── styles/global.css    # 设计系统（藏青 + 图标蓝）与基线样式
 └── dist/                    # 构建产物（加载插件选这个目录）
 ```
+
+## 官网与部署
+
+官网为 `site/` 下的纯静态页，线上地址 **https://penapi.uuhb.cn**（蓝队云 103.47.82.89，Caddy 托管 HTTPS）。
+
+**发版流程**：
+
+1. `npm run build` 构建扩展，确认 `dist/` 正常
+2. 压缩发布包：`Compress-Archive -Path dist/* -DestinationPath site/downloads/penapi-<版本>.zip -Force`
+3. 更新 `site/index.html` 与 `site/changelog.html` 的版本号、下载链接，并在更新记录页追加条目
+4. 上传：`scp -P 29344 -r site/* root@103.47.82.89:/www/penapi.uuhb.cn/web/`
+5. 静态页即时生效，无需重启任何服务
+
+**服务器侧**：站点块见 `deploy/penapi-caddy-block.conf`（已并入 `/etc/caddy/Caddyfile`），站点根目录 `/www/penapi.uuhb.cn/web`，HTTPS 证书由 Caddy 自动签发与续期。
 
 ## 已知边界（平台限制）
 
