@@ -1,0 +1,106 @@
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
+import { useLibraryStore } from '@/stores/library';
+import { useEnvStore } from '@/stores/env';
+import { useHistoryStore } from '@/stores/history';
+import { useSettingsStore } from '@/stores/settings';
+import { useUiStore } from '@/stores/ui';
+import AppIcon from '@/components/common/AppIcon.vue';
+import TopBar from '@/components/layout/TopBar.vue';
+import Sidebar from '@/components/sidebar/Sidebar.vue';
+import WorkspaceTabs from '@/components/workspace/WorkspaceTabs.vue';
+import ContextMenu from '@/components/common/ContextMenu.vue';
+import ConfirmModal from '@/components/common/ConfirmModal.vue';
+import PromptModal from '@/components/common/PromptModal.vue';
+import ToastHost from '@/components/common/ToastHost.vue';
+import EnvModal from '@/components/modal/EnvModal.vue';
+import SettingsModal from '@/components/modal/SettingsModal.vue';
+import SaveRequestModal from '@/components/modal/SaveRequestModal.vue';
+import CurlImportModal from '@/components/modal/CurlImportModal.vue';
+import ImportApisModal from '@/components/modal/ImportApisModal.vue';
+import PostmanImportModal from '@/components/modal/PostmanImportModal.vue';
+import CodeGenModal from '@/components/modal/CodeGenModal.vue';
+import CookieModal from '@/components/modal/CookieModal.vue';
+import CaptureModal from '@/components/modal/CaptureModal.vue';
+
+const library = useLibraryStore();
+const env = useEnvStore();
+const history = useHistoryStore();
+const settings = useSettingsStore();
+const ui = useUiStore();
+
+const ready = ref(false);
+
+onMounted(async () => {
+  await Promise.all([library.load(), env.load(), history.load(), settings.load()]);
+  ready.value = true;
+});
+</script>
+
+<template>
+  <!-- 启动加载 -->
+  <div v-if="!ready" class="splash">
+    <img src="/icons/icon128.png" alt="" class="splash-icon" draggable="false" />
+    <div class="splash-text">PenApi 加载中…</div>
+  </div>
+
+  <div v-else class="app-shell">
+    <TopBar />
+    <div class="app-body">
+      <Sidebar />
+      <WorkspaceTabs />
+    </div>
+
+    <!-- 全局单实例：右键菜单 / 确认 / 输入 / Toast / 业务弹窗 -->
+    <ContextMenu />
+    <ConfirmModal />
+    <PromptModal />
+    <ToastHost />
+    <EnvModal v-if="ui.modal === 'env'" />
+    <SettingsModal v-if="ui.modal === 'settings'" />
+    <SaveRequestModal v-if="ui.modal === 'save-request'" />
+    <CurlImportModal v-if="ui.modal === 'curl-import'" />
+    <ImportApisModal v-if="ui.modal === 'import-apis'" />
+    <PostmanImportModal v-if="ui.modal === 'postman-import'" />
+    <CodeGenModal v-if="ui.modal === 'codegen'" />
+    <CookieModal v-if="ui.modal === 'cookies'" />
+    <CaptureModal v-if="ui.modal === 'capture'" />
+  </div>
+</template>
+
+<style scoped>
+.splash {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: var(--text-1);
+}
+.splash-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+.splash-text {
+  font-size: 13px;
+  letter-spacing: 2px;
+}
+.app-shell {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.app-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+</style>

@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "PenApi 接口调试",
+  "version": "1.0.0",
+  "description": "全屏独立标签页的接口调试工具：HTTP / WebSocket 调试、本地项目分组、环境变量、历史记录、cURL 导入导出，数据全部保存在本地。",
+  "permissions": ["storage", "unlimitedStorage", "cookies", "webRequest"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_title": "PenApi 接口调试",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

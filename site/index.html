@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PenApi — 浏览器接口调试工具</title>
+<meta name="description" content="PenApi 是一款轻量的浏览器接口调试插件：HTTP / WebSocket 调试、项目分组、环境变量、断言测试、代码生成与页面抓包，全部在一个独立标签页里完成，数据只存在本地。" />
+<link rel="icon" type="image/png" href="icons/icon48.png" />
+<style>
+  :root {
+    --bg-0: #0e1322;
+    --bg-1: #141a2c;
+    --bg-2: #1b2338;
+    --bg-3: #232d4a;
+    --border: #273149;
+    --border-strong: #35426a;
+    --text-1: #eaeef9;
+    --text-2: #9ba4c2;
+    --text-3: #636e93;
+    --accent: #4c7dff;
+    --accent-hover: #6e97ff;
+    --accent-strong: #3560e8;
+    --accent-dim: rgba(76, 125, 255, 0.13);
+    --accent-line: rgba(76, 125, 255, 0.42);
+    --green: #3fce8e;
+    --orange: #ffb648;
+    --red: #ff6b6b;
+    --purple: #b88cff;
+    --radius: 14px;
+    --font: "Inter", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    --mono: "JetBrains Mono", "Cascadia Code", Consolas, "SF Mono", Menlo, monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--font);
+    background:
+      radial-gradient(1100px 620px at 50% -12%, rgba(76, 125, 255, 0.16), transparent 62%),
+      radial-gradient(720px 420px at 88% 6%, rgba(99, 110, 147, 0.10), transparent 60%),
+      var(--bg-0);
+    color: var(--text-1);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  /* 细网格背景 */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: radial-gradient(900px 560px at 50% 0%, #000 0%, transparent 78%);
+    mask-image: radial-gradient(900px 560px at 50% 0%, #000 0%, transparent 78%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { width: min(1120px, calc(100% - 72px)); margin: 0 auto; }
+
+  a { color: inherit; text-decoration: none; }
+  svg { display: block; }
+
+  /* ============ 顶部导航 ============ */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(16px) saturate(1.25);
+    -webkit-backdrop-filter: blur(16px) saturate(1.25);
+    background: rgba(14, 19, 34, 0.66);
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.25s ease, background 0.25s ease;
+  }
+  .nav.scrolled {
+    border-bottom-color: rgba(39, 49, 73, 0.75);
+    background: rgba(14, 19, 34, 0.85);
+  }
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 64px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand img {
+    width: 28px; height: 28px;
+    border-radius: 7px;
+    box-shadow: 0 2px 10px rgba(76, 125, 255, 0.30);
+  }
+  .brand b { font-size: 16.5px; font-weight: 700; letter-spacing: 0.01em; }
+  .nav-links { display: flex; gap: 4px; margin-left: 28px; }
+  .nav-links a {
+    font-size: 13.5px;
+    color: var(--text-2);
+    padding: 7px 13px;
+    border-radius: 8px;
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+  .nav-links a:hover { color: var(--text-1); background: rgba(255, 255, 255, 0.045); }
+  .nav-spacer { flex: 1; }
+  .nav-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 36px;
+    padding: 0 16px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--accent);
+    border-radius: 9px;
+    transition: background 0.15s ease, transform 0.15s ease;
+  }
+  .nav-cta:hover { background: var(--accent-hover); transform: translateY(-1px); }
+  .nav-cta svg { width: 15px; height: 15px; }
+
+  /* ============ Hero ============ */
+  .hero {
+    position: relative;
+    z-index: 1;
+    padding: 84px 0 0;
+    text-align: center;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 28px;
+    padding: 0 13px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #aebef0;
+    background: var(--accent-dim);
+    border: 1px solid rgba(76, 125, 255, 0.28);
+    border-radius: 20px;
+    letter-spacing: 0.02em;
+  }
+  .badge .pulse {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent-hover);
+    box-shadow: 0 0 0 0 rgba(110, 151, 255, 0.55);
+    animation: pulse 2.4s ease-out infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(110, 151, 255, 0.5); }
+    70% { box-shadow: 0 0 0 7px rgba(110, 151, 255, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(110, 151, 255, 0); }
+  }
+
+  /* 品牌组合：透明 logo 与名称横向融合，无底色无外框 */
+  .hero-brand {
+    margin-top: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+  .hero-brand .logo {
+    width: 128px;
+    height: 128px;
+    flex-shrink: 0;
+  }
+  .hero-brand .wordmark { text-align: left; }
+  .hero-brand .name {
+    font-size: clamp(46px, 5.2vw, 60px);
+    font-weight: 800;
+    letter-spacing: 0.005em;
+    line-height: 1;
+    background: linear-gradient(98deg, #f3f6ff 4%, #b9cbff 42%, #5d86ff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+  .hero-brand .tagline {
+    margin-top: 13px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-3);
+    letter-spacing: 0.3em;
+  }
+  .hero .sub {
+    margin: 20px auto 0;
+    max-width: 620px;
+    font-size: 15.5px;
+    line-height: 1.85;
+    color: var(--text-2);
+  }
+
+  .cta-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 36px;
+    flex-wrap: wrap;
+  }
+  .btn-download {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    height: 50px;
+    padding: 0 26px;
+    font-size: 15px;
+    font-weight: 650;
+    color: #fff;
+    background: linear-gradient(180deg, #5f8bff 0%, #4474f6 100%);
+    border-radius: 11px;
+    box-shadow:
+      0 10px 28px -6px rgba(76, 125, 255, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
+  }
+  .btn-download:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.07);
+    box-shadow:
+      0 16px 36px -8px rgba(76, 125, 255, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  }
+  .btn-download svg { width: 18px; height: 18px; }
+  .btn-download .meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.62);
+    border-left: 1px solid rgba(255, 255, 255, 0.24);
+    padding-left: 11px;
+    margin-left: 1px;
+  }
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 50px;
+    padding: 0 22px;
+    font-size: 14.5px;
+    font-weight: 550;
+    color: var(--text-2);
+    border: 1px solid var(--border-strong);
+    border-radius: 11px;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+  .btn-ghost:hover { color: var(--text-1); border-color: #46557f; background: rgba(255, 255, 255, 0.035); }
+
+  .hero .hint {
+    margin-top: 16px;
+    font-size: 12.5px;
+    color: var(--text-3);
+    letter-spacing: 0.01em;
+  }
+
+  /* ============ 产品窗口 Mock ============ */
+  .shot-wrap { padding: 62px 0 0; }
+  .shot {
+    position: relative;
+    border: 1px solid var(--border-strong);
+    border-radius: 16px;
+    background: var(--bg-1);
+    overflow: hidden;
+    text-align: left;
+    box-shadow:
+      0 60px 120px -40px rgba(0, 0, 0, 0.75),
+      0 0 0 1px rgba(255, 255, 255, 0.02),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    font-size: 12.5px;
+  }
+  .shot::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(76, 125, 255, 0.05), transparent 22%);
+  }
+  .shot-bar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    height: 40px;
+    padding: 0 16px;
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot.r { background: #ff6b6b; }
+  .dot.y { background: #ffb648; }
+  .dot.g { background: #3fce8e; }
+  .shot-bar .title {
+    margin-left: 10px;
+    font-size: 11.5px;
+    color: var(--text-3);
+    letter-spacing: 0.03em;
+  }
+  .shot-bar .tabs {
+    display: flex;
+    gap: 2px;
+    margin-left: 26px;
+  }
+  .shot-bar .tabs span {
+    font-size: 11px;
+    color: var(--text-3);
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+  .shot-bar .tabs span.on {
+    color: var(--text-1);
+    background: var(--bg-0);
+    border: 1px solid var(--border);
+  }
+
+  .shot-body { display: flex; min-height: 400px; }
+
+  .shot-side {
+    width: 208px;
+    flex-shrink: 0;
+    background: var(--bg-1);
+    border-right: 1px solid var(--border);
+    padding: 14px 10px 10px;
+    display: flex;
+    flex-direction: column;
+  }
+  .side-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-2);
+  }
+  .side-head em {
+    font-style: normal;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-3);
+    background: var(--bg-3);
+    border-radius: 5px;
+    padding: 1px 6px;
+  }
+  .proj {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 8px;
+    margin-top: 4px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-2);
+  }
+  .proj svg { width: 10px; height: 10px; color: var(--text-3); }
+  .tree {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 8px 6px 22px;
+    font-size: 11.5px;
+    color: var(--text-2);
+    border-radius: 7px;
+    margin: 1px 0;
+  }
+  .tree .m {
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 4.5px;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+  }
+  .m.get { color: #57d7a4; background: rgba(63, 206, 142, 0.13); }
+  .m.post { color: #ffc76b; background: rgba(255, 182, 72, 0.13); }
+  .m.put { color: #7da7ff; background: rgba(85, 162, 255, 0.14); }
+  .m.del { color: #ff8f8f; background: rgba(255, 107, 107, 0.13); }
+  .m.ws { color: #c9a6ff; background: rgba(184, 140, 255, 0.14); }
+  .tree.on {
+    position: relative;
+    color: var(--text-1);
+    font-weight: 600;
+    background: rgba(76, 125, 255, 0.10);
+  }
+  .tree.on::before {
+    content: "";
+    position: absolute;
+    left: 6px;
+    top: 6px;
+    bottom: 6px;
+    width: 2.5px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+  .shot-side .grow { flex: 1; }
+  .side-foot {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+    margin-top: 10px;
+  }
+  .side-foot span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: 26px;
+    font-size: 10.5px;
+    color: var(--text-2);
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .side-foot svg { width: 10px; height: 10px; }
+
+  .shot-main { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--bg-0); }
+
+  .req-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .mchip {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: #57d7a4;
+    background: rgba(63, 206, 142, 0.13);
+    border: 1px solid rgba(63, 206, 142, 0.25);
+    padding: 5px 10px;
+    border-radius: 6px;
+  }
+  .urlbar {
+    flex: 1;
+    min-width: 0;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--text-1);
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .urlbar .var { color: var(--purple); }
+  .urlbar .path { color: var(--text-1); }
+  .urlbar .q { color: var(--text-3); }
+  .send-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 18px;
+    font-size: 12px;
+    font-weight: 650;
+    color: #fff;
+    background: var(--accent);
+    border-radius: 16px;
+    box-shadow: 0 4px 14px -3px rgba(76, 125, 255, 0.5);
+  }
+  .send-btn svg { width: 11px; height: 11px; }
+
+  .req-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 8px 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .req-tabs span {
+    font-size: 11.5px;
+    color: var(--text-3);
+    padding: 6px 11px 9px;
+    border-bottom: 2px solid transparent;
+  }
+  .req-tabs span.on {
+    color: var(--text-1);
+    font-weight: 600;
+    border-bottom-color: var(--accent);
+  }
+  .req-tabs .cnt {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    color: var(--accent-hover);
+    background: var(--accent-dim);
+    border-radius: 8px;
+    padding: 0.5px 5px;
+    margin-left: 2px;
+  }
+
+  .kv-grid {
+    display: grid;
+    grid-template-columns: 30px 140px 1fr;
+    gap: 0;
+    padding: 10px 14px;
+  }
+  .kv-grid > div {
+    padding: 7px 10px;
+    border-bottom: 1px solid rgba(39, 49, 73, 0.6);
+    display: flex;
+    align-items: center;
+  }
+  .kv-grid .k {
+    color: var(--text-2);
+    font-size: 11.5px;
+  }
+  .kv-grid .v {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--text-1);
+  }
+  .kv-grid .c {
+    justify-content: center;
+  }
+  .ck {
+    width: 13px;
+    height: 13px;
+    border-radius: 3.5px;
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ck svg { width: 8px; height: 8px; color: #fff; }
+
+  .resp-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-1);
+  }
+  .resp-head .label { font-size: 11px; font-weight: 600; color: var(--text-2); letter-spacing: 0.02em; }
+  .chip-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #57d7a4;
+    background: rgba(63, 206, 142, 0.10);
+    border: 1px solid rgba(63, 206, 142, 0.22);
+    padding: 2.5px 9px;
+    border-radius: 20px;
+  }
+  .chip-stat::before {
+    content: "";
+    width: 5.5px;
+    height: 5.5px;
+    border-radius: 50%;
+    background: #57d7a4;
+  }
+  .chip-time {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: #57d7a4;
+  }
+  .chip-plain {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-3);
+  }
+  .chip-flags {
+    margin-left: auto;
+    display: flex;
+    gap: 6px;
+  }
+  .chip-flags span {
+    font-size: 10.5px;
+    color: var(--text-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 8px;
+  }
+  .chip-flags .ok {
+    color: #57d7a4;
+    border-color: rgba(63, 206, 142, 0.3);
+    background: rgba(63, 206, 142, 0.08);
+  }
+
+  .json {
+    flex: 1;
+    margin: 0;
+    padding: 14px 18px 18px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    line-height: 1.9;
+    overflow: auto;
+    color: var(--text-2);
+    white-space: pre;
+  }
+  .j-k { color: #7da7ff; }
+  .j-s { color: #8fd3a7; }
+  .j-n { color: #ffb648; }
+  .j-b { color: #b88cff; }
+  .j-p { color: #636e93; }
+  .j-ln {
+    color: #3d4668;
+    user-select: none;
+    display: inline-block;
+    width: 24px;
+  }
+
+  /* ============ 区块通用 ============ */
+  section.block { position: relative; z-index: 1; padding: 108px 0 0; }
+  .sec-head { text-align: center; max-width: 640px; margin: 0 auto 46px; }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    color: var(--accent-hover);
+    text-transform: uppercase;
+  }
+  .eyebrow::before,
+  .eyebrow::after {
+    content: "";
+    width: 22px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent-line));
+  }
+  .eyebrow::after { background: linear-gradient(90deg, var(--accent-line), transparent); }
+  .sec-head h2 {
+    margin-top: 14px;
+    font-size: clamp(26px, 3.4vw, 34px);
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+  }
+  .sec-head p {
+    margin-top: 12px;
+    font-size: 14px;
+    line-height: 1.8;
+    color: var(--text-2);
+  }
+
+  /* ============ 功能网格 ============ */
+  .feat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .feat {
+    position: relative;
+    padding: 22px 22px 24px;
+    background: linear-gradient(180deg, rgba(27, 35, 56, 0.55), rgba(20, 26, 44, 0.55));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
+  }
+  .feat:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-2px);
+    background: linear-gradient(180deg, rgba(35, 45, 74, 0.5), rgba(20, 26, 44, 0.6));
+  }
+  .feat .ico {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-hover);
+    background: var(--accent-dim);
+    border: 1px solid rgba(76, 125, 255, 0.22);
+    border-radius: 9px;
+    margin-bottom: 15px;
+  }
+  .feat .ico svg { width: 18px; height: 18px; }
+  .feat h3 { font-size: 14.5px; font-weight: 650; letter-spacing: 0.005em; }
+  .feat p { margin-top: 7px; font-size: 12.8px; line-height: 1.75; color: var(--text-2); }
+  .feat .tag {
+    position: absolute;
+    top: 22px;
+    right: 20px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+    color: var(--text-3);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 1.5px 6px;
+  }
+
+  /* ============ 安装步骤 ============ */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .step {
+    position: relative;
+    padding: 26px 24px 28px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .step .no {
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent-hover);
+    background: var(--accent-dim);
+    border: 1px solid rgba(76, 125, 255, 0.3);
+    border-radius: 50%;
+    margin-bottom: 16px;
+  }
+  .step h3 { font-size: 14.5px; font-weight: 650; }
+  .step p { margin-top: 8px; font-size: 12.8px; line-height: 1.8; color: var(--text-2); }
+  .step code {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: #aebef0;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 1.5px 7px;
+    white-space: nowrap;
+  }
+
+  .install-note {
+    margin-top: 18px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 15px 18px;
+    background: rgba(76, 125, 255, 0.06);
+    border: 1px solid rgba(76, 125, 255, 0.18);
+    border-radius: 11px;
+    font-size: 12.8px;
+    line-height: 1.75;
+    color: var(--text-2);
+  }
+  .install-note svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--accent-hover);
+  }
+  .install-note b { color: var(--text-1); font-weight: 600; }
+
+  /* ============ 底部 ============ */
+  footer {
+    position: relative;
+    z-index: 1;
+    margin-top: 110px;
+    border-top: 1px solid rgba(39, 49, 73, 0.7);
+  }
+  .foot-inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 30px 0 38px;
+  }
+  .foot-inner img { width: 22px; height: 22px; border-radius: 6px; opacity: 0.9; }
+  .foot-inner .name { font-size: 13.5px; font-weight: 650; }
+  .foot-inner .copy { font-size: 12px; color: var(--text-3); }
+  .foot-inner .space { flex: 1; }
+  .foot-inner a.dom {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--text-3);
+    transition: color 0.15s ease;
+  }
+  .foot-inner a.dom:hover { color: var(--text-2); }
+
+  /* 入场动画 */
+  .reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 0.7s cubic-bezier(0.22, 0.61, 0.36, 1), transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+    html { scroll-behavior: auto; }
+  }
+
+  /* ============ 响应式 ============ */
+  @media (max-width: 960px) {
+    .container { width: calc(100% - 44px); }
+    .feat-grid { grid-template-columns: repeat(2, 1fr); }
+    .shot-side { display: none; }
+    .nav-links { display: none; }
+  }
+  @media (max-width: 640px) {
+    .hero { padding-top: 60px; }
+    .hero-brand { gap: 13px; }
+    .hero-brand .logo { width: 92px; height: 92px; }
+    .hero-brand .name { font-size: 34px; }
+    .hero-brand .tagline { font-size: 11px; letter-spacing: 0.2em; margin-top: 9px; }
+    .feat-grid, .steps { grid-template-columns: 1fr; }
+    .kv-grid { grid-template-columns: 96px 1fr auto; }
+    .shot-body { min-height: 340px; }
+    .foot-inner { flex-wrap: wrap; }
+    .foot-inner .space { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="nav" id="nav">
+  <div class="container nav-inner">
+    <a class="brand" href="#top">
+      <img src="icons/icon48.png" alt="PenApi 图标" />
+      <b>PenApi</b>
+    </a>
+    <nav class="nav-links">
+      <a href="#features">功能</a>
+      <a href="#install">安装</a>
+      <a href="changelog.html">更新记录</a>
+    </nav>
+    <span class="nav-spacer"></span>
+    <a class="nav-cta" href="downloads/penapi-1.0.0.zip" download>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      下载插件
+    </a>
+  </div>
+</header>
+
+<main id="top">
+  <!-- ================= Hero ================= -->
+  <section class="hero container">
+    <div class="badge reveal in"><span class="pulse"></span>Chrome / Edge 扩展 · Manifest V3</div>
+    <div class="hero-brand reveal in">
+      <img class="logo" src="icons/icon320.png" alt="PenApi 图标" />
+      <div class="wordmark">
+        <div class="name">PenApi</div>
+        <div class="tagline">浏览器接口调试工具</div>
+      </div>
+    </div>
+    <p class="sub reveal in">
+      一个独立全屏标签页，就是完整的调试工作台：HTTP 与 WebSocket 请求、项目分组、环境变量、
+      断言测试、变量提取、代码生成、页面抓包——数据只存在本地，用完即走。
+    </p>
+    <div class="cta-row reveal in">
+      <a class="btn-download" href="downloads/penapi-1.0.0.zip" download>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        下载插件包
+        <span class="meta">penapi-1.0.0.zip</span>
+      </a>
+      <a class="btn-ghost" href="#install">
+        查看安装步骤
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </a>
+    </div>
+    <p class="hint reveal in">解压后在扩展管理页加载即可使用 · 不需要登录 · 不上传任何数据</p>
+  </section>
+
+  <!-- ================= 产品 Mock ================= -->
+  <div class="shot-wrap container reveal">
+    <div class="shot">
+      <div class="shot-bar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="title">PenApi</span>
+        <div class="tabs">
+          <span class="on">GET 商品列表</span>
+          <span>POST 创建订单</span>
+        </div>
+      </div>
+      <div class="shot-body">
+        <aside class="shot-side">
+          <div class="side-head">接口库<em>12</em></div>
+          <div class="proj">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            电商平台 API
+          </div>
+          <div class="tree on"><span class="m get">GET</span>商品列表</div>
+          <div class="tree"><span class="m post">POST</span>创建订单</div>
+          <div class="tree"><span class="m put">PUT</span>更新库存</div>
+          <div class="proj">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            用户中心
+          </div>
+          <div class="tree"><span class="m post">POST</span>登录</div>
+          <div class="tree"><span class="m get">GET</span>个人信息</div>
+          <div class="tree"><span class="m ws">WS</span>消息推送</div>
+          <span class="grow"></span>
+          <div class="side-foot">
+            <span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              新建
+            </span>
+            <span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              导入
+            </span>
+          </div>
+        </aside>
+        <div class="shot-main">
+          <div class="req-row">
+            <span class="mchip">GET</span>
+            <span class="urlbar"><span class="var">{{baseUrl}}</span><span class="path">/api/v1/products</span><span class="q">?page=1&amp;size=20</span></span>
+            <span class="send-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              发送
+            </span>
+          </div>
+          <div class="req-tabs">
+            <span class="on">参数</span>
+            <span>请求头</span>
+            <span>请求体</span>
+            <span>断言<span class="cnt">3</span></span>
+          </div>
+          <div class="kv-grid">
+            <div class="c"><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span></div>
+            <div class="k">page</div>
+            <div class="v">1</div>
+            <div class="c"><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span></div>
+            <div class="k">size</div>
+            <div class="v">20</div>
+          </div>
+          <div class="resp-head">
+            <span class="label">响应</span>
+            <span class="chip-stat">200 OK</span>
+            <span class="chip-time">126 ms</span>
+            <span class="chip-plain">1.4 KB</span>
+            <div class="chip-flags">
+              <span class="ok">断言 3/3 通过</span>
+              <span>已提取 token</span>
+            </div>
+          </div>
+          <pre class="json"><span class="j-ln">1</span><span class="j-p">{</span>
+<span class="j-ln">2</span>  <span class="j-k">"code"</span><span class="j-p">:</span> <span class="j-n">0</span><span class="j-p">,</span>
+<span class="j-ln">3</span>  <span class="j-k">"message"</span><span class="j-p">:</span> <span class="j-s">"success"</span><span class="j-p">,</span>
+<span class="j-ln">4</span>  <span class="j-k">"data"</span><span class="j-p">:</span> <span class="j-p">{</span>
+<span class="j-ln">5</span>    <span class="j-k">"total"</span><span class="j-p">:</span> <span class="j-n">128</span><span class="j-p">,</span>
+<span class="j-ln">6</span>    <span class="j-k">"list"</span><span class="j-p">:</span> <span class="j-p">[</span>
+<span class="j-ln">7</span>      <span class="j-p">{</span> <span class="j-k">"id"</span><span class="j-p">:</span> <span class="j-n">1001</span><span class="j-p">,</span> <span class="j-k">"name"</span><span class="j-p">:</span> <span class="j-s">"机械键盘 · 茶轴"</span><span class="j-p">,</span> <span class="j-k">"price"</span><span class="j-p">:</span> <span class="j-n">399</span><span class="j-p">,</span> <span class="j-k">"stock"</span><span class="j-p">:</span> <span class="j-n">86</span> <span class="j-p">},</span>
+<span class="j-ln">8</span>      <span class="j-p">{</span> <span class="j-k">"id"</span><span class="j-p">:</span> <span class="j-n">1002</span><span class="j-p">,</span> <span class="j-k">"name"</span><span class="j-p">:</span> <span class="j-s">"显示器支架 · 铝"</span><span class="j-p">,</span> <span class="j-k">"price"</span><span class="j-p">:</span> <span class="j-n">259</span><span class="j-p">,</span> <span class="j-k">"stock"</span><span class="j-p">:</span> <span class="j-n">32</span> <span class="j-p">}</span>
+<span class="j-ln">9</span>    <span class="j-p">]</span>
+<span class="j-ln">10</span>  <span class="j-p">}</span>
+<span class="j-ln">11</span><span class="j-p">}</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 功能 ================= -->
+  <section class="block container" id="features">
+    <div class="sec-head reveal">
+      <span class="eyebrow">功能一览</span>
+      <h2>调试链路，一次配齐</h2>
+      <p>从发出请求到校验结果，中间需要的东西都做进去了。</p>
+    </div>
+    <div class="feat-grid">
+      <div class="feat reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+        <h3>HTTP 全方法调试</h3>
+        <p>GET / POST / PUT / DELETE / PATCH，参数、请求头、表单、raw、Bearer 与 Basic 认证一应俱全，支持自定义超时。</p>
+      </div>
+      <div class="feat reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg></div>
+        <h3>响应结构化查看</h3>
+        <p>JSON 树逐层折叠与语法高亮，原始文本、图片与 HTML 页内预览，响应头与请求头对照。</p>
+      </div>
+      <div class="feat reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
+        <h3>项目分组管理</h3>
+        <p>多个项目、多级文件夹整理接口，拖拽排序与跨层移动，随时保存、复制、重命名。</p>
+      </div>
+      <div class="feat reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><line x1="8" y1="16" x2="8" y2="22"/><line x1="16" y1="16" x2="16" y2="22"/><line x1="12" y1="18" x2="12" y2="22"/></svg></div>
+        <h3>环境与变量</h3>
+        <p>开发 / 测试 / 生产多环境一键切换，{{变量}} 在发送前自动替换，URL 输入框实时预览解析结果。</p>
+      </div>
+      <div class="feat reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div>
+        <h3>断言测试</h3>
+        <p>状态码、耗时、JSON 路径、响应头、响应体五类断言，发送后自动校验，失败原因逐条列出。</p>
+      </div>
+      <div class="feat reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+        <h3>变量自动提取</h3>
+        <p>从响应中按 JSON 路径提取 token、id 等字段，自动写入当前环境，串联登录与业务接口。</p>
+      </div>
+      <div class="feat reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div>
+        <h3>代码生成</h3>
+        <p>按当前请求的实际参数，一键导出 cURL、Fetch、Axios、Python 与 Go 代码，直接粘进工程。</p>
+      </div>
+      <div class="feat reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+        <h3>多格式导入</h3>
+        <p>支持 cURL、Postman Collection、固定 JSON 格式与抓包记录导入，批量建接口、自动建文件夹。</p>
+      </div>
+      <div class="feat reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg></div>
+        <h3>页面抓包</h3>
+        <p>开启捕获后，浏览网页时产生的接口请求自动记录，选中任一条即可导入为可调试的接口。</p>
+      </div>
+      <div class="feat reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/></svg></div>
+        <h3>WebSocket 调试</h3>
+        <p>建立长连接、按时间线收发消息，连接状态呼吸灯实时反馈，与 HTTP 接口在同一处管理。</p>
+      </div>
+      <div class="feat reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5"/><path d="M8.5 8.5v.01"/><path d="M16 15.5v.01"/><path d="M12 12v.01"/></svg></div>
+        <h3>Cookie 管理器</h3>
+        <p>按域名查看、编辑、清空站点 Cookie，一键复制 Cookie 请求头，调试登录态更顺手。</p>
+      </div>
+      <div class="feat reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+        <h3>数据只存本地</h3>
+        <p>项目、环境与历史记录全部保存在浏览器本地存储，不经过任何服务器，导出备份一键带走。</p>
+        <span class="tag">LOCAL</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 安装 ================= -->
+  <section class="block container" id="install">
+    <div class="sec-head reveal">
+      <span class="eyebrow">开始使用</span>
+      <h2>三步装好，打开即用</h2>
+      <p>未上架应用商店，以开发者模式加载，全程不到一分钟。</p>
+    </div>
+    <div class="steps">
+      <div class="step reveal">
+        <div class="no">01</div>
+        <h3>下载并解压</h3>
+        <p>下载插件包 <code>penapi-1.0.0.zip</code>，解压到任意固定目录。请勿删除该目录，扩展会随目录失效。</p>
+      </div>
+      <div class="step reveal">
+        <div class="no">02</div>
+        <h3>打开扩展管理页</h3>
+        <p>地址栏访问 <code>chrome://extensions</code>（Edge 为 <code>edge://extensions</code>），打开右上角的「开发者模式」。</p>
+      </div>
+      <div class="step reveal">
+        <div class="no">03</div>
+        <h3>加载扩展</h3>
+        <p>点击「加载已解压的扩展程序」，选择解压后的文件夹。完成后点击工具栏的 PenApi 图标，进入全屏调试页。</p>
+      </div>
+    </div>
+    <div class="install-note reveal">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <div>插件更新时，把新版本解压覆盖原目录，在扩展管理页点击刷新即可，<b>本地数据不会丢失</b>。若提示需要额外权限，请在扩展卡片上确认。</div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="container foot-inner">
+    <img src="icons/icon48.png" alt="" />
+    <span class="name">PenApi</span>
+    <span class="copy">© 2026 · 浏览器接口调试工具</span>
+    <span class="space"></span>
+    <a class="flink" href="changelog.html">更新记录</a>
+    <a class="dom" href="https://penapi.uuh.cn">penapi.uuh.cn</a>
+  </div>
+</footer>
+
+<script>
+  // 导航栏滚动状态
+  const nav = document.getElementById('nav');
+  const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 12);
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  // 滚动入场
+  const items = document.querySelectorAll('.reveal:not(.in)');
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting) {
+          e.target.classList.add('in');
+          io.unobserve(e.target);
+        }
+      }
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    items.forEach((el) => io.observe(el));
+  } else {
+    items.forEach((el) => el.classList.add('in'));
+  }
+</script>
+</body>
+</html>
