@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useLibraryStore } from '@/stores/library';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useUiStore } from '@/stores/ui';
 import { openCtxMenu } from '@/core/menu';
 import { newRequest } from '@/core/request';
+import { exportSelectionJson, deleteSelection } from '@/core/batch';
 import type { Project } from '@/types';
 import AppIcon from '@/components/common/AppIcon.vue';
 import NodeItem from './NodeItem.vue';
@@ -15,6 +16,13 @@ const ui = useUiStore();
 
 const search = ref('');
 const importBtn = ref<HTMLElement | null>(null);
+
+// Esc 取消批量选择
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && library.selection.length) library.clearSelection();
+}
+onMounted(() => window.addEventListener('keydown', onKeydown));
+onUnmounted(() => window.removeEventListener('keydown', onKeydown));
 
 function importMenu() {
   const rect = (importBtn.value as HTMLElement).getBoundingClientRect();
@@ -169,7 +177,7 @@ async function newProject() {
       <input v-model="search" class="input search-input" placeholder="搜索接口名称 / URL" spellcheck="false" />
     </div>
 
-    <div class="tree-area">
+    <div class="tree-area" @click.self="library.clearSelection()">
       <div v-if="projectsWithMatch.length === 0" class="tree-empty">
         <template v-if="search">
           <span>未找到匹配的接口</span>
@@ -182,7 +190,12 @@ async function newProject() {
       </div>
 
       <div v-for="project in projectsWithMatch" :key="project.id" class="project-block">
-        <div class="project-head" @contextmenu="projectCtx($event, project)">
+        <div
+          class="project-head"
+          :class="{ on: library.activeProjectId === project.id }"
+          @click="library.selectProject(project.id)"
+          @contextmenu="projectCtx($event, project)"
+        >
           <button class="proj-toggle" :class="{ open: project.expanded !== false }" @click.stop="toggleProject(project)">
             <AppIcon name="chevron-right" :size="12" />
           </button>
@@ -220,11 +233,22 @@ async function newProject() {
       </div>
     </div>
 
+    <div v-if="library.selection.length" class="sel-bar">
+      <span class="sel-count">已选 {{ library.selection.length }} 项</span>
+      <button class="btn small" title="导出为可回导的 JSON 文件" @click="exportSelectionJson">
+        <AppIcon name="download" :size="12" /> 导出
+      </button>
+      <button class="btn small sel-danger" title="删除选中内容" @click="deleteSelection">
+        <AppIcon name="trash" :size="12" /> 删除
+      </button>
+      <button class="btn small ghost" title="取消选择（Esc）" @click="library.clearSelection()">取消</button>
+    </div>
+
     <div class="sidebar-actions">
       <button class="btn small" @click="newProject">
         <AppIcon name="plus" :size="13" /> 新建项目
       </button>
-      <button class="btn small" :disabled="!library.projects.length" @click="() => { const p = projectsWithMatch[0]; if (p) createRequestIn(p.id, null); }">
+      <button class="btn small" :disabled="!library.projects.length" @click="() => { const p = library.activeProject ?? projectsWithMatch[0]; if (p) createRequestIn(p.id, null); }">
         <AppIcon name="braces" :size="13" /> 新建接口
       </button>
       <button class="btn small" @click="workspace.openNewRequest('ws')">
@@ -307,6 +331,36 @@ async function newProject() {
 }
 .project-head:hover {
   background: var(--bg-2);
+}
+.project-head.on {
+  background: var(--accent-dim);
+  box-shadow: inset 2.5px 0 0 var(--accent);
+}
+.project-head.on:hover {
+  background: var(--accent-dim);
+}
+.sel-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-2);
+  flex-shrink: 0;
+}
+.sel-count {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-1);
+  white-space: nowrap;
+}
+.sel-bar .btn {
+  padding: 4px 8px;
+  font-size: 11.5px;
+}
+.sel-danger:hover {
+  color: var(--red);
+  border-color: rgba(255, 107, 107, 0.4);
 }
 .proj-toggle {
   background: transparent;

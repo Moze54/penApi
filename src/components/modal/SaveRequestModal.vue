@@ -17,8 +17,13 @@ const tab = computed(() => workspace.tabs.find((t) => t.id === payload?.tabId));
 
 const sortedProjects = computed(() => [...library.projects].sort((a, b) => a.order - b.order));
 
-const projectId = ref(sortedProjects.value[0]?.id ?? '');
-const parentId = ref<string>('root');
+// 默认保存到侧栏当前选中的项目；若选中了单个文件夹，默认位置为该文件夹
+const defaultProjectId =
+  library.activeProjectId && sortedProjects.value.some((p) => p.id === library.activeProjectId)
+    ? library.activeProjectId
+    : sortedProjects.value[0]?.id ?? '';
+const projectId = ref(defaultProjectId);
+const parentId = ref<string>(library.defaultParentFor(defaultProjectId));
 const name = ref(tab.value?.title ?? '');
 
 /** 当前选中项目下的文件夹（含根目录项） */

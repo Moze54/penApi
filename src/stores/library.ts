@@ -8,6 +8,12 @@ interface LibraryState {
   projects: Project[];
   nodes: ApiNode[];
   loaded: boolean;
+  /** 当前选中的项目（侧栏高亮，导入/新建接口的默认落点） */
+  activeProjectId: string;
+  /** 批量选择中的节点 id */
+  selection: string[];
+  /** Shift 连选的锚点 */
+  lastSelectedId: string;
 }
 
 export type DropPos = 'before' | 'after' | 'inside';
@@ -17,7 +23,16 @@ export const useLibraryStore = defineStore('library', {
     projects: [],
     nodes: [],
     loaded: false,
+    activeProjectId: '',
+    selection: [],
+    lastSelectedId: '',
   }),
+
+  getters: {
+    activeProject(state): Project | null {
+      return state.projects.find((p) => p.id === state.activeProjectId) ?? null;
+    },
+  },
 
   actions: {
     async load() {
@@ -41,6 +56,10 @@ export const useLibraryStore = defineStore('library', {
         fixed = true;
         return { ...node, request: norm.value };
       });
+      // 恢复/校正当前项目
+      if (!this.projects.some((p) => p.id === this.activeProjectId)) {
+        this.activeProjectId = [...this.projects].sort((a, b) => a.order - b.order)[0]?.id ?? '';
+      }
       this.loaded = true;
       // 能还原的恢复数据，不能还原的回写空值，立即落盘自愈
       if (fixed) {
@@ -65,6 +84,67 @@ export const useLibraryStore = defineStore('library', {
 
     // ---- 项目 ----
 
+    /** 选中项目（侧栏高亮 + 导入默认落点） */
+    selectProject(id: string) {
+      if (this.projects.some((p) => p.id === id)) this.activeProjectId = id;
+    },
+
+    /** 导入位置默认值：选中了单个文件夹时用它，否则项目根目录（返回 'root'） */
+    defaultParentFor(projectId: string): string {
+      if (this.selection.length !== 1) return 'root';
+      const only = this.nodeById(this.selection[0]);
+      return only && only.projectId === projectId && only.type === 'folder' ? only.id : 'root';
+    },
+
+    // ---- 批量选择 ----
+
+    isSelected(id: string): boolean {
+      return this.selection.includes(id);
+    },
+
+    toggleSelect(id: string) {
+      if (this.selection.includes(id)) this.selection = this.selection.filter((x) => x !== id);
+      else this.selection = [...this.selection, id];
+      this.lastSelectedId = id;
+    },
+
+    /** Shift 连选：同一父级下从锚点到目标的范围；跨父级则只选目标 */
+    selectRange(targetId: string) {
+      const target = this.nodeById(targetId);
+      if (!target) return;
+      const anchor = this.lastSelectedId ? this.nodeById(this.lastSelectedId) : undefined;
+      if (!anchor || anchor.projectId !== target.projectId || anchor.parentId !== target.parentId) {
+        this.selection = [targetId];
+      } else {
+        const siblings = this.childrenOf(target.projectId, target.parentId).map((n) => n.id);
+        const a = siblings.indexOf(anchor.id);
+        const b = siblings.indexOf(targetId);
+        if (a < 0 || b < 0) this.selection = [targetId];
+        else {
+          const [lo, hi] = a <= b ? [a, b] : [b, a];
+          this.selection = siblings.slice(lo, hi + 1);
+        }
+      }
+      this.lastSelectedId = targetId;
+    },
+
+    clearSelection() {
+      this.selection = [];
+      this.lastSelectedId = '';
+    },
+
+    /** 批量删除：传入的 id 连同其全部子级一起删除 */
+    deleteNodes(ids: string[]) {
+      const all = new Set<string>();
+      for (const id of ids) {
+        all.add(id);
+        for (const d of this.collectDescendants(id)) all.add(d);
+      }
+      this.nodes = this.nodes.filter((n) => !all.has(n.id));
+      this.selection = this.selection.filter((id) => !all.has(id));
+      this.persistNodes();
+    },
+
     createProject(name: string, desc = ''): Project {
       const p: Project = {
         id: uid(),
@@ -74,6 +154,7 @@ export const useLibraryStore = defineStore('library', {
         createdAt: Date.now(),
       };
       this.projects.push(p);
+      this.activeProjectId = p.id;
       this.persistProjects();
       return p;
     },
@@ -90,6 +171,10 @@ export const useLibraryStore = defineStore('library', {
       this.projects = this.projects.filter((p) => p.id !== id);
       const ids = new Set(this.nodes.filter((n) => n.projectId === id).map((n) => n.id));
       this.nodes = this.nodes.filter((n) => !ids.has(n.id));
+      this.selection = this.selection.filter((nid) => !ids.has(nid));
+      if (this.activeProjectId === id) {
+        this.activeProjectId = [...this.projects].sort((a, b) => a.order - b.order)[0]?.id ?? '';
+      }
       this.persistProjects();
       this.persistNodes();
     },
@@ -138,6 +223,7 @@ export const useLibraryStore = defineStore('library', {
         request: opts.request,
       };
       this.nodes.push(node);
+      this.activeProjectId = opts.projectId;
       this.persistNodes();
       return node;
     },
@@ -172,6 +258,7 @@ export const useLibraryStore = defineStore('library', {
       const ids = this.collectDescendants(id);
       ids.add(id);
       this.nodes = this.nodes.filter((n) => !ids.has(n.id));
+      this.selection = this.selection.filter((nid) => !ids.has(nid));
       this.persistNodes();
     },
 
@@ -260,6 +347,10 @@ export const useLibraryStore = defineStore('library', {
     importAll(projects: Project[], nodes: ApiNode[]) {
       this.projects = projects;
       this.nodes = nodes;
+      this.selection = [];
+      if (!projects.some((p) => p.id === this.activeProjectId)) {
+        this.activeProjectId = [...projects].sort((a, b) => a.order - b.order)[0]?.id ?? '';
+      }
       this.persistProjects();
       this.persistNodes();
     },

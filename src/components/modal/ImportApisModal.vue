@@ -12,8 +12,13 @@ const library = useLibraryStore();
 const ui = useUiStore();
 
 const sortedProjects = computed(() => [...library.projects].sort((a, b) => a.order - b.order));
-const projectId = ref(sortedProjects.value[0]?.id ?? '');
-const parentId = ref('root');
+// 默认导入到侧栏当前选中的项目；若选中了单个文件夹，默认位置为该文件夹
+const defaultProjectId =
+  library.activeProjectId && sortedProjects.value.some((p) => p.id === library.activeProjectId)
+    ? library.activeProjectId
+    : sortedProjects.value[0]?.id ?? '';
+const projectId = ref(defaultProjectId);
+const parentId = ref(library.defaultParentFor(defaultProjectId));
 
 const projectOptions = computed(() => sortedProjects.value.map((p) => ({ value: p.id, label: p.name })));
 const folderOptions = computed(() => [

@@ -5,6 +5,7 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { useUiStore } from '@/stores/ui';
 import { openCtxMenu } from '@/core/menu';
 import { toCurl } from '@/core/curl';
+import { exportSelectionJson, deleteSelection } from '@/core/batch';
 import type { ApiNode } from '@/types';
 import AppIcon from '@/components/common/AppIcon.vue';
 
@@ -57,7 +58,46 @@ function openNode() {
   }
 }
 
+/** 单击：打开；Ctrl/⌘+单击：多选；Shift+单击：连选 */
+function onRowClick(e: MouseEvent) {
+  library.selectProject(props.node.projectId);
+  if (e.metaKey || e.ctrlKey) {
+    library.toggleSelect(props.node.id);
+    return;
+  }
+  if (e.shiftKey) {
+    library.selectRange(props.node.id);
+    return;
+  }
+  if (library.selection.length) library.clearSelection();
+  openNode();
+}
+
 function ctxMenu(e: MouseEvent) {
+  // 右键点在批量选择内 → 显示批量操作
+  const inBatch = library.selection.length > 1 && library.selection.includes(props.node.id);
+  if (inBatch) {
+    openCtxMenu(e, [
+      {
+        label: `导出选中 ${library.selection.length} 项为 JSON`,
+        icon: 'download',
+        action: () => {
+          exportSelectionJson();
+        },
+      },
+      {
+        label: `删除选中 ${library.selection.length} 项`,
+        icon: 'trash',
+        danger: true,
+        action: () => {
+          void deleteSelection();
+        },
+      },
+      { separator: true, label: '' },
+      { label: '取消选择', icon: 'close', action: () => library.clearSelection() },
+    ]);
+    return;
+  }
   const items = isFolder.value
     ? [
         { label: '新建接口', icon: 'braces', action: () => newRequestIn(props.node) },
@@ -204,12 +244,16 @@ function onDrop(e: DragEvent) {
       ref="rowEl"
       class="node-row"
       :class="[
-        { folder: isFolder, active: workspace.active?.nodeId === node.id },
+        {
+          folder: isFolder,
+          active: workspace.active?.nodeId === node.id,
+          selected: library.selection.includes(node.id),
+        },
         dropPos ? `drop-${dropPos}` : '',
       ]"
       :style="{ paddingLeft: 8 + depth * 14 + 'px' }"
       draggable="true"
-      @click="openNode"
+      @click="onRowClick"
       @contextmenu="ctxMenu"
       @dragstart="onDragStart"
       @dragover="onDragOver"
@@ -275,6 +319,13 @@ function onDrop(e: DragEvent) {
 .node-row.active .node-name {
   color: var(--text-0);
   font-weight: 600;
+}
+.node-row.selected {
+  background: var(--accent-dim);
+  border-color: var(--accent-line);
+}
+.node-row.selected .node-name {
+  color: var(--text-0);
 }
 .node-chevron {
   display: inline-flex;
