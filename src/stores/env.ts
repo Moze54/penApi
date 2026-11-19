@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import type { Environment, EnvVar } from '@/types';
 import { db, SKEYS, asArray } from '@/storage/db';
+import { fixEnvVars } from '@/core/normalize';
 import { uid } from '@/core/util';
 import { envMap } from '@/core/vars';
 import { debounce } from '@/core/util';
@@ -35,14 +36,24 @@ export const useEnvStore = defineStore('env', {
         db.get<unknown>(SKEYS.activeEnv, ''),
       ]);
       const envs = asArray<Environment>(rawEnvs);
-      this.envs = envs ?? [];
+      let fixed = !Array.isArray(rawEnvs);
+      this.envs = (envs ?? []).map((env) => {
+        if (!env || typeof env !== 'object') {
+          fixed = true;
+          return env;
+        }
+        const vars = fixEnvVars(env.vars);
+        if (!vars.fixed) return env;
+        fixed = true;
+        return { ...env, vars: vars.value };
+      });
       this.activeEnvId =
         typeof activeEnvId === 'string' && this.envs.some((e) => e.id === activeEnvId)
           ? activeEnvId
           : '';
       this.loaded = true;
-      if (!Array.isArray(rawEnvs)) {
-        console.warn('[penapi] 检测到非数组存储，已自动修复', SKEYS.envs);
+      if (fixed) {
+        console.warn('[penapi] 检测到坏形状存储数据，已自动修复', SKEYS.envs);
         this.persist();
         queuePersist.flush();
       }

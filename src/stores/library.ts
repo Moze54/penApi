@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import type { ApiNode, Project, RequestConfig } from '@/types';
 import { db, SKEYS, asArray } from '@/storage/db';
+import { normalizeRequest } from '@/core/normalize';
 import { uid, debounce } from '@/core/util';
 
 interface LibraryState {
@@ -27,11 +28,23 @@ export const useLibraryStore = defineStore('library', {
       const projects = asArray<Project>(rawProjects);
       const nodes = asArray<ApiNode>(rawNodes);
       this.projects = projects ?? [];
-      this.nodes = nodes ?? [];
+      let fixed = !Array.isArray(rawProjects) || !Array.isArray(rawNodes);
+      // 逐条归一化请求配置：修复历史版本写坏的内嵌数组（params/headers/body.form 等）
+      this.nodes = (nodes ?? []).map((node) => {
+        if (!node || typeof node !== 'object') {
+          fixed = true;
+          return node;
+        }
+        if (node.type !== 'request') return node;
+        const norm = normalizeRequest(node.request);
+        if (!norm.fixed) return node;
+        fixed = true;
+        return { ...node, request: norm.value };
+      });
       this.loaded = true;
-      // 历史版本曾把代理数组存成对象：能还原的恢复数据，不能还原的回写空数组，立即落盘自愈
-      if (!Array.isArray(rawProjects) || !Array.isArray(rawNodes)) {
-        console.warn('[penapi] 检测到非数组存储，已自动修复', SKEYS.projects, SKEYS.nodes);
+      // 能还原的恢复数据，不能还原的回写空值，立即落盘自愈
+      if (fixed) {
+        console.warn('[penapi] 检测到坏形状存储数据，已自动修复', SKEYS.projects, SKEYS.nodes);
         this.persistProjects();
         this.persistNodes();
         this.flushPersist();
