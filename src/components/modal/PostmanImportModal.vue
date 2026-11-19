@@ -75,6 +75,8 @@ function doImport() {
   };
   create(r.nodes, null);
 
+  // 批量导入是关键操作，立即落盘，不等防抖窗口
+  library.flushPersist();
   ui.closeModal();
   ui.toast(`已导入项目「${pname}」：${r.requestCount} 个接口 · ${r.folderCount} 个文件夹`);
 }

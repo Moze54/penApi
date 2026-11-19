@@ -12,13 +12,48 @@ export function deepClone<T>(v: T): T {
   return JSON.parse(JSON.stringify(v)) as T;
 }
 
-/** 防抖 */
+/**
+ * 防抖（带 flush 支持）
+ * - wrapped.flush()：立即执行挂起的调用（导入/保存等关键操作后调用，防关窗丢写）
+ * - 页面 pagehide / 隐藏时自动 flush 全部挂起写入
+ */
+const flushers: (() => void)[] = [];
+if (typeof window !== 'undefined') {
+  const runFlush = () => {
+    for (const f of flushers) {
+      try {
+        f();
+      } catch {
+        /* 忽略单个 flush 异常 */
+      }
+    }
+  };
+  window.addEventListener('pagehide', runFlush);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') runFlush();
+  });
+}
+
 export function debounce<A extends unknown[]>(fn: (...args: A) => void, ms = 300) {
   let t: ReturnType<typeof setTimeout> | undefined;
-  return (...args: A) => {
+  let lastArgs: A | undefined;
+  const wrapped = (...args: A) => {
+    lastArgs = args;
     if (t) clearTimeout(t);
-    t = setTimeout(() => fn(...args), ms);
+    t = setTimeout(() => {
+      t = undefined;
+      fn(...(lastArgs as A));
+    }, ms);
   };
+  wrapped.flush = () => {
+    if (t && lastArgs) {
+      clearTimeout(t);
+      t = undefined;
+      fn(...lastArgs);
+    }
+  };
+  flushers.push(() => wrapped.flush());
+  return wrapped;
 }
 
 /** 字节数格式化 */

@@ -19,15 +19,23 @@ export const db = {
     }
   },
 
-  async set(key: string, value: unknown): Promise<void> {
+  async set(key: string, value: unknown): Promise<boolean> {
     try {
       if (isExt) {
         await chrome.storage.local.set({ [key]: value });
-        return;
+        return true;
       }
       localStorage.setItem(key, JSON.stringify(value));
+      return true;
     } catch (e) {
-      console.warn('[penapi] 写入存储失败', key, e);
+      // 写失败绝不能静默：数据丢了用户毫无感知，必须立刻暴露
+      console.error('[penapi] 数据写入失败', key, e);
+      window.dispatchEvent(
+        new CustomEvent('penapi-storage-error', {
+          detail: { key, message: String((e as Error)?.message || e) },
+        }),
+      );
+      return false;
     }
   },
 

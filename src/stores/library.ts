@@ -35,6 +35,11 @@ export const useLibraryStore = defineStore('library', {
     persistNodes() {
       queuePersistNodes(this.nodes);
     },
+    /** 关键操作（批量导入等）后立即落盘，不等防抖窗口 */
+    flushPersist() {
+      queuePersistProjects.flush();
+      queuePersistNodes.flush();
+    },
 
     // ---- 项目 ----
 

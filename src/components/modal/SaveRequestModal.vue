@@ -59,6 +59,7 @@ function save() {
     request: persistClone(tab.value.request),
   });
   workspace.attachToNode(tab.value.id, node.id);
+  library.flushPersist();
   ui.closeModal();
   ui.toast('已保存到接口库');
 }

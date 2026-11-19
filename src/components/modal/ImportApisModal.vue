@@ -113,6 +113,8 @@ function doImport() {
     created++;
   }
 
+  // 批量导入是关键操作，立即落盘，不等防抖窗口
+  library.flushPersist();
   ui.closeModal();
   ui.toast(`已导入 ${created} 个接口` + (result.issues.length ? `，跳过 ${result.issues.length} 条异常项` : ''));
 }
