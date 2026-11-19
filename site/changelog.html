@@ -204,6 +204,11 @@
     padding: 2px 9px;
     letter-spacing: 0.04em;
   }
+  .r-tag.fix {
+    color: #ffcb7d;
+    background: rgba(255, 182, 72, 0.10);
+    border-color: rgba(255, 182, 72, 0.32);
+  }
   .r-date {
     font-family: var(--mono);
     font-size: 12px;
@@ -311,7 +316,7 @@
     <a class="gh-btn" href="https://github.com/Moze54/penApi" target="_blank" rel="noopener" aria-label="GitHub 仓库" title="GitHub 仓库">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
     </a>
-    <a class="nav-cta" href="downloads/penapi-1.0.0.zip" download>
+    <a class="nav-cta" href="downloads/penapi-1.0.1.zip" download>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       下载插件
     </a>
@@ -326,8 +331,32 @@
   </div>
 
   <div class="timeline container">
-    <!-- v1.0.0 -->
+    <!-- v1.0.1 -->
     <article class="release latest reveal in">
+      <span class="dotp"></span>
+      <div class="r-head">
+        <span class="r-ver">v1.0.1</span>
+        <span class="r-tag fix">问题修复</span>
+        <span class="r-date">2026-11-19</span>
+      </div>
+      <div class="r-card r-body">
+        <div class="r-group">
+          <h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+            存储可靠性
+          </h3>
+          <ul>
+            <li><b>修复接口库数据丢失</b>：修复扩展模式下保存时列表被写成错误形状、重新打开后项目与接口为空、页面报错的问题</li>
+            <li><b>历史数据自动还原</b>：更新后首次打开会自动识别并还原受影响的接口数据，无需重新导入</li>
+            <li><b>保存失败即时可见</b>：写入失败立即弹出红色提示，不再静默丢数据；导入、保存等关键操作后立即落盘</li>
+            <li><b>控制台噪音清理</b>：修复启动时后台消息未应答导致的报错提示</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <!-- v1.0.0 -->
+    <article class="release reveal in">
       <span class="dotp"></span>
       <div class="r-head">
         <span class="r-ver">v1.0.0</span>

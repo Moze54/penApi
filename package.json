@@ -1,7 +1,7 @@
 {
   "name": "penapi",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "PenApi 浏览器接口调试插件",
   "type": "module",
   "scripts": {
