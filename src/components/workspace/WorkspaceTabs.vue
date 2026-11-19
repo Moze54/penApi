@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { nextTick, ref, watch } from 'vue';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useUiStore } from '@/stores/ui';
 import { openCtxMenu } from '@/core/menu';
@@ -13,6 +13,28 @@ const workspace = useWorkspaceStore();
 const ui = useUiStore();
 
 const plusBtn = ref<HTMLElement | null>(null);
+const tabScroll = ref<HTMLElement | null>(null);
+
+/** 滚轮在标签条上转化为横向滚动（滚动条已隐藏） */
+function onTabWheel(e: WheelEvent) {
+  const el = tabScroll.value;
+  if (!el || el.scrollWidth <= el.clientWidth) return;
+  if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+    el.scrollLeft += e.deltaY;
+    e.preventDefault();
+  }
+}
+
+// 切换标签时把活动标签滚入可视区
+watch(
+  () => workspace.activeId,
+  () => {
+    nextTick(() => {
+      const el = tabScroll.value?.querySelector('.wtab.on');
+      el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+  },
+);
 
 function newMenu(e: MouseEvent) {
   const rect = (plusBtn.value as HTMLElement).getBoundingClientRect();
@@ -42,7 +64,7 @@ function tabCtx(e: MouseEvent, tabId: string) {
   <div class="workspace">
     <!-- 标签条 -->
     <div class="tab-strip">
-      <div class="tab-scroll">
+      <div ref="tabScroll" class="tab-scroll" @wheel="onTabWheel">
         <div
           v-for="t in workspace.tabs"
           :key="t.id"
@@ -116,49 +138,57 @@ function tabCtx(e: MouseEvent, tabId: string) {
   align-items: center;
   background: var(--bg-1);
   border-bottom: 1px solid var(--border);
-  padding: 6px 8px 0;
+  padding: 7px 8px;
   gap: 4px;
   flex-shrink: 0;
 }
 .tab-scroll {
   display: flex;
-  gap: 2px;
+  gap: 6px;
   overflow-x: auto;
   flex: 1;
   min-width: 0;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 .tab-scroll::-webkit-scrollbar {
+  display: none;
   height: 0;
+  width: 0;
 }
 .wtab {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 8px 6px 10px;
-  border-radius: 7px 7px 0 0;
+  padding: 5px 7px 5px 9px;
+  border-radius: 7px;
   border: 1px solid transparent;
-  border-bottom: none;
-  color: var(--text-1);
+  color: var(--text-2);
   cursor: pointer;
   max-width: 200px;
   flex-shrink: 0;
   font-size: 12.6px;
   user-select: none;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
 }
 .wtab:hover {
   background: var(--bg-2);
-  color: var(--text-0);
+  color: var(--text-1);
 }
 .wtab.on {
-  background: var(--bg-0);
-  border-color: var(--border-strong);
+  background: var(--accent-dim);
+  border-color: var(--accent-line);
   color: var(--text-0);
-  box-shadow: 0 1px 0 0 var(--bg-0);
 }
 .wtab.on .wtab-title {
   color: var(--text-0);
   font-weight: 600;
+}
+.wtab.on .wtab-close {
+  color: var(--text-1);
 }
 .wtab-title {
   overflow: hidden;
@@ -200,7 +230,6 @@ function tabCtx(e: MouseEvent, tabId: string) {
   color: var(--text-0);
 }
 .plus-btn {
-  margin-bottom: 4px;
   flex-shrink: 0;
 }
 .tab-content {

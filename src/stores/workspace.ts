@@ -19,6 +19,16 @@ interface WorkspaceState {
 /** WebSocket 客户端为不可序列化对象，挂在模块级 Map */
 const wsClients = new Map<string, WsClient>();
 
+/**
+ * 各标签的“已保存内容”快照。点击节点/切换标签会触发 HttpPane 的 deep watch，
+ * 单纯切换不应标脏，因此 dirty 一律用当前内容与基线对比得出，而不是一见回调就置 true。
+ */
+const baselines = new Map<string, string>();
+
+function snapshotOf(tab: TabItem): string {
+  return JSON.stringify(persistClone(tab.request));
+}
+
 function hostOf(url: string): string {
   try {
     const u = new URL(url);
@@ -68,6 +78,7 @@ export const useWorkspaceStore = defineStore('workspace', {
         tab.ws = { status: 'idle', url: request.url, messages: [] };
       }
       this.tabs.push(tab);
+      baselines.set(tab.id, snapshotOf(tab));
       this.activeId = tab.id;
     },
 
@@ -85,6 +96,7 @@ export const useWorkspaceStore = defineStore('workspace', {
         tab.ws = { status: 'idle', url: '', messages: [] };
       }
       this.tabs.push(tab);
+      baselines.set(tab.id, snapshotOf(tab));
       this.activeId = tab.id;
     },
 
@@ -105,6 +117,7 @@ export const useWorkspaceStore = defineStore('workspace', {
         tab.ws = { status: 'idle', url: rec.request.url, messages: [] };
       }
       this.tabs.push(tab);
+      baselines.set(tab.id, snapshotOf(tab));
       this.activeId = tab.id;
     },
 
@@ -121,6 +134,7 @@ export const useWorkspaceStore = defineStore('workspace', {
       const idx = this.tabs.findIndex((t) => t.id === id);
       if (idx < 0) return;
       this.tabs.splice(idx, 1);
+      baselines.delete(id);
       if (this.activeId === id) {
         const next = this.tabs[idx] ?? this.tabs[idx - 1];
         this.activeId = next?.id ?? null;
@@ -135,12 +149,18 @@ export const useWorkspaceStore = defineStore('workspace', {
           wsClients.delete(key);
         }
       });
+      baselines.forEach((_, key) => {
+        if (!this.tabs.some((t) => t.id === key)) baselines.delete(key);
+      });
       this.activeId = id;
     },
 
     touch(id: string) {
       const tab = this.tabs.find((t) => t.id === id);
-      if (tab) tab.dirty = true;
+      if (!tab) return;
+      // 与保存基线对比：内容未变（仅切换标签触发了 watch）不算修改
+      const base = baselines.get(id);
+      tab.dirty = base === undefined ? true : snapshotOf(tab) !== base;
     },
 
     setTitle(id: string, title: string) {
@@ -152,6 +172,7 @@ export const useWorkspaceStore = defineStore('workspace', {
     saveToNode(tab: TabItem): boolean {
       if (!tab.nodeId) return false;
       useLibraryStore().updateNodeRequest(tab.nodeId, persistClone(tab.request));
+      baselines.set(tab.id, snapshotOf(tab));
       tab.dirty = false;
       return true;
     },
@@ -161,6 +182,7 @@ export const useWorkspaceStore = defineStore('workspace', {
       const tab = this.tabs.find((t) => t.id === tabId);
       if (!tab) return;
       tab.nodeId = nodeId;
+      baselines.set(tab.id, snapshotOf(tab));
       tab.dirty = false;
       const node = useLibraryStore().nodeById(nodeId);
       if (node) tab.title = node.name;
