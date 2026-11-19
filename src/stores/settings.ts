@@ -16,8 +16,12 @@ export const useSettingsStore = defineStore('settings', {
 
   actions: {
     async load() {
-      const saved = await db.get<Partial<AppSettings>>(SKEYS.settings, {});
-      this.settings = { ...DEFAULT_SETTINGS, ...saved };
+      const saved = await db.get<unknown>(SKEYS.settings, {});
+      const base =
+        saved && typeof saved === 'object' && !Array.isArray(saved)
+          ? (saved as Partial<AppSettings>)
+          : {};
+      this.settings = { ...DEFAULT_SETTINGS, ...base };
       this.loaded = true;
     },
 

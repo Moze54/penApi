@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import type { Environment, EnvVar } from '@/types';
-import { db, SKEYS } from '@/storage/db';
+import { db, SKEYS, asArray } from '@/storage/db';
 import { uid } from '@/core/util';
 import { envMap } from '@/core/vars';
 import { debounce } from '@/core/util';
@@ -30,13 +30,22 @@ export const useEnvStore = defineStore('env', {
 
   actions: {
     async load() {
-      const [envs, activeEnvId] = await Promise.all([
-        db.get<Environment[]>(SKEYS.envs, []),
-        db.get<string>(SKEYS.activeEnv, ''),
+      const [rawEnvs, activeEnvId] = await Promise.all([
+        db.get<unknown>(SKEYS.envs, []),
+        db.get<unknown>(SKEYS.activeEnv, ''),
       ]);
-      this.envs = envs;
-      this.activeEnvId = envs.some((e) => e.id === activeEnvId) ? activeEnvId : '';
+      const envs = asArray<Environment>(rawEnvs);
+      this.envs = envs ?? [];
+      this.activeEnvId =
+        typeof activeEnvId === 'string' && this.envs.some((e) => e.id === activeEnvId)
+          ? activeEnvId
+          : '';
       this.loaded = true;
+      if (!Array.isArray(rawEnvs)) {
+        console.warn('[penapi] 检测到非数组存储，已自动修复', SKEYS.envs);
+        this.persist();
+        queuePersist.flush();
+      }
     },
 
     persist() {

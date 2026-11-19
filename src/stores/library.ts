@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import type { ApiNode, Project, RequestConfig } from '@/types';
-import { db, SKEYS } from '@/storage/db';
+import { db, SKEYS, asArray } from '@/storage/db';
 import { uid, debounce } from '@/core/util';
 
 interface LibraryState {
@@ -20,13 +20,22 @@ export const useLibraryStore = defineStore('library', {
 
   actions: {
     async load() {
-      const [projects, nodes] = await Promise.all([
-        db.get<Project[]>(SKEYS.projects, []),
-        db.get<ApiNode[]>(SKEYS.nodes, []),
+      const [rawProjects, rawNodes] = await Promise.all([
+        db.get<unknown>(SKEYS.projects, []),
+        db.get<unknown>(SKEYS.nodes, []),
       ]);
-      this.projects = projects;
-      this.nodes = nodes;
+      const projects = asArray<Project>(rawProjects);
+      const nodes = asArray<ApiNode>(rawNodes);
+      this.projects = projects ?? [];
+      this.nodes = nodes ?? [];
       this.loaded = true;
+      // 历史版本曾把代理数组存成对象：能还原的恢复数据，不能还原的回写空数组，立即落盘自愈
+      if (!Array.isArray(rawProjects) || !Array.isArray(rawNodes)) {
+        console.warn('[penapi] 检测到非数组存储，已自动修复', SKEYS.projects, SKEYS.nodes);
+        this.persistProjects();
+        this.persistNodes();
+        this.flushPersist();
+      }
     },
 
     persistProjects() {

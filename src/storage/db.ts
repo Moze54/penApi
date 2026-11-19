@@ -4,6 +4,35 @@ const isExt = typeof chrome !== 'undefined' && !!chrome.storage?.local;
 
 export const storageKind: 'extension' | 'web' = isExt ? 'extension' : 'web';
 
+/**
+ * Vue reactive 代理不能直接交给 chrome.storage：其序列化会把 Proxy 数组存成
+ * {0:…,1:…} 形状的普通对象，重开读取时展开即抛 "not iterable"（表现为数据丢失）。
+ * 所有写入先深拷贝成纯值，从根上消除代理。
+ */
+function toPlain(value: unknown): unknown {
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return value;
+  }
+}
+
+/**
+ * 读取校验与自愈：数组原样返回；形如 {0:…,1:…} 的数组状对象按数字键还原为数组
+ * （修复历史版本写坏的数据）；其余形状返回 null 由调用方兜底。
+ */
+export function asArray<T>(v: unknown): T[] | null {
+  if (Array.isArray(v)) return v as T[];
+  if (v && typeof v === 'object') {
+    const obj = v as Record<string, unknown>;
+    const keys = Object.keys(obj);
+    if (keys.length > 0 && keys.every((k) => /^\d+$/.test(k))) {
+      return keys.sort((a, b) => Number(a) - Number(b)).map((k) => obj[k] as T);
+    }
+  }
+  return null;
+}
+
 export const db = {
   async get<T>(key: string, fallback: T): Promise<T> {
     try {
@@ -22,10 +51,10 @@ export const db = {
   async set(key: string, value: unknown): Promise<boolean> {
     try {
       if (isExt) {
-        await chrome.storage.local.set({ [key]: value });
+        await chrome.storage.local.set({ [key]: toPlain(value) });
         return true;
       }
-      localStorage.setItem(key, JSON.stringify(value));
+      localStorage.setItem(key, JSON.stringify(toPlain(value)));
       return true;
     } catch (e) {
       // 写失败绝不能静默：数据丢了用户毫无感知，必须立刻暴露

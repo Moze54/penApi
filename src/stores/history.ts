@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import type { HistoryRecord } from '@/types';
-import { db, SKEYS } from '@/storage/db';
+import { db, SKEYS, asArray } from '@/storage/db';
 import { useSettingsStore } from './settings';
 import { debounce } from '@/core/util';
 
@@ -17,8 +17,15 @@ export const useHistoryStore = defineStore('history', {
 
   actions: {
     async load() {
-      this.records = await db.get<HistoryRecord[]>(SKEYS.history, []);
+      const raw = await db.get<unknown>(SKEYS.history, []);
+      const records = asArray<HistoryRecord>(raw);
+      this.records = records ?? [];
       this.loaded = true;
+      if (!Array.isArray(raw)) {
+        console.warn('[penapi] 检测到非数组存储，已自动修复', SKEYS.history);
+        this.persist();
+        queuePersist.flush();
+      }
     },
 
     persist() {

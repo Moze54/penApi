@@ -14,7 +14,8 @@ app.mount('#app');
 // 扩展环境下上报 tabId 给 service worker，用于图标点击时聚焦已开标签
 if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
   try {
-    chrome.runtime.sendMessage({ type: 'penapi-hello' });
+    // promise 形态的 sendMessage 在后台未应答时会 reject（message port closed），静默吞掉
+    void chrome.runtime.sendMessage({ type: 'penapi-hello' })?.catch?.(() => {});
   } catch (_) {
     /* 开发模式忽略 */
   }
