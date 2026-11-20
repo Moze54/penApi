@@ -125,20 +125,6 @@ penApi/
 └── dist/                    # 构建产物（加载插件选这个目录）
 ```
 
-## 官网与部署
-
-官网为 `site/` 下的纯静态页，线上地址 **https://penapi.uuhb.cn**（蓝队云 103.47.82.89，Caddy 托管 HTTPS）。
-
-**发版流程**：
-
-1. `npm run build` 构建扩展，确认 `dist/` 正常
-2. 压缩发布包：`Compress-Archive -Path dist/* -DestinationPath site/downloads/penapi-<版本>.zip -Force`
-3. 更新 `site/index.html` 与 `site/changelog.html` 的版本号、下载链接，并在更新记录页追加条目
-4. 上传：`scp -P 29344 -r site/* root@103.47.82.89:/www/penapi.uuhb.cn/web/`
-5. 静态页即时生效，无需重启任何服务
-
-**服务器侧**：站点块见 `deploy/penapi-caddy-block.conf`（已并入 `/etc/caddy/Caddyfile`），站点根目录 `/www/penapi.uuhb.cn/web`，HTTPS 证书由 Caddy 自动签发与续期。
-
 ## 已知边界（平台限制）
 
 - 浏览器 WS API 不支持自定义连接头，WebSocket 调试不含请求头编辑
